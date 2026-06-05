@@ -11,69 +11,61 @@
         const OriginalWebSocket = window.WebSocket;
         if (!OriginalWebSocket) return;
 
-        window.WebSocket = function(url, protocols) {
-          const isViteWS = (
-            (typeof protocols === 'string' && protocols === 'vite-hmr') ||
-            (Array.isArray(protocols) && protocols.includes('vite-hmr')) ||
-            (typeof url === 'string' && (
-              url.includes('/vite') || 
-              url.includes(':3000') || 
-              url.includes('127.0.0.1') || 
-              url.includes('localhost')
-            ))
-          );
+        class PatchedWebSocket extends OriginalWebSocket {
+          constructor(url, protocols) {
+            const isViteWS = (
+              (typeof protocols === 'string' && protocols === 'vite-hmr') ||
+              (Array.isArray(protocols) && protocols.includes('vite-hmr')) ||
+              (typeof url === 'string' && (
+                url.includes('/vite') || 
+                url.includes(':3000') || 
+                url.includes('run.app') ||
+                url.includes('127.0.0.1') || 
+                url.includes('localhost')
+              ))
+            );
 
-          if (isViteWS) {
-            const listeners = {};
-            const fakeSocket = {
-              url: url,
-              readyState: 0, // CONNECTING
-              bufferedAmount: 0,
-              extensions: "",
-              protocol: "vite-hmr",
-              binaryType: "blob",
-              onopen: null,
-              onmessage: null,
-              onerror: null,
-              onclose: null,
-              send: function() {},
-              close: function() {
-                fakeSocket.readyState = 3; // CLOSED
-                if (fakeSocket.onclose) fakeSocket.onclose();
-                if (listeners['close']) {
-                  listeners['close'].forEach(cb => cb());
-                }
-              },
-              addEventListener: function(event, callback) {
-                if (!listeners[event]) listeners[event] = [];
-                listeners[event].push(callback);
-              },
-              removeEventListener: function(event, callback) {
-                if (listeners[event]) {
-                  listeners[event] = listeners[event].filter(cb => cb !== callback);
-                }
-              },
-              dispatchEvent: function() { return true; }
-            };
+            if (isViteWS) {
+              // Create a robust virtual WebSocket to silence disconnected development HMR error bursts
+              const listeners = {};
+              const fakeSocket = {
+                url: url,
+                readyState: 1, // Instantly OPEN to stop reconnection wait lists
+                bufferedAmount: 0,
+                extensions: "",
+                protocol: "vite-hmr",
+                binaryType: "blob",
+                send: function() {},
+                close: function() {
+                  this.readyState = 3; // CLOSED
+                  if (this.onclose) this.onclose();
+                  if (listeners['close']) {
+                    listeners['close'].forEach(cb => cb());
+                  }
+                },
+                addEventListener: function(event, callback) {
+                  if (!listeners[event]) listeners[event] = [];
+                  listeners[event].push(callback);
+                  if (event === 'open') {
+                    setTimeout(() => callback({ type: 'open' }), 10);
+                  }
+                },
+                removeEventListener: function(event, callback) {
+                  if (listeners[event]) {
+                    listeners[event] = listeners[event].filter(cb => cb !== callback);
+                  }
+                },
+                dispatchEvent: function() { return true; }
+              };
+              return fakeSocket;
+            }
 
-            // Transition to virtual OPEN state and invoke callback listeners
-            setTimeout(() => {
-              fakeSocket.readyState = 1; // OPEN
-              if (fakeSocket.onopen) fakeSocket.onopen();
-              if (listeners['open']) {
-                listeners['open'].forEach(cb => cb());
-              }
-            }, 100);
-
-            return fakeSocket;
+            // Normal WebSocket for any actual user real-time client networks
+            super(url, protocols);
           }
+        }
 
-          return new OriginalWebSocket(url, protocols);
-        };
-
-        // Maintain prototype chain and static properties
-        window.WebSocket.prototype = OriginalWebSocket.prototype;
-        Object.assign(window.WebSocket, OriginalWebSocket);
+        window.WebSocket = PatchedWebSocket;
       })();
     </script>
   </head>

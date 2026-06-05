@@ -82,7 +82,7 @@ export default function Chatbot() {
   ];
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end">
       
       {/* Tiny Floating Trigger Button */}
       <AnimatePresence>
@@ -113,7 +113,7 @@ export default function Chatbot() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30, scale: 0.95 }}
             transition={{ duration: 0.3 }}
-            className="w-[320px] sm:w-[365px] h-[480px] bg-white rounded-3xl border border-slate-200/90 shadow-2xl flex flex-col justify-between overflow-hidden text-left"
+            className="w-[calc(100vw-32px)] sm:w-[365px] h-[480px] bg-white rounded-3xl border border-slate-200/90 shadow-2xl flex flex-col justify-between overflow-hidden text-left"
           >
             {/* Header */}
             <div className="bg-slate-900 p-4 shrink-0 flex items-center justify-between border-b border-slate-800">

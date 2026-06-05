@@ -4,6 +4,7 @@ import { Sparkles, MoveHorizontal, ChevronLeft, ChevronRight, Check } from 'luci
 
 export default function BeforeAfter() {
   const [sliderPosition, setSliderPosition] = useState(50); // percentage (0-100)
+  const [containerWidth, setContainerWidth] = useState<number | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
 
@@ -42,6 +43,26 @@ export default function BeforeAfter() {
     return () => {
       window.removeEventListener('mouseup', handleMouseUpGlobal);
       window.removeEventListener('touchend', handleTouchEndGlobal);
+    };
+  }, []);
+
+  // Track layout bounds with ResizeObserver to prevent distorted overlay images on mobile
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    setContainerWidth(containerRef.current.getBoundingClientRect().width);
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect && entry.contentRect.width > 0) {
+          setContainerWidth(entry.contentRect.width);
+        }
+      }
+    });
+
+    observer.observe(containerRef.current);
+    return () => {
+      observer.disconnect();
     };
   }, []);
 
@@ -95,7 +116,7 @@ export default function BeforeAfter() {
                   src="https://lh3.googleusercontent.com/aida-public/AB6AXuDfPH7VSGOnMWFuWyTHNWl5HKnk_gJL5wePWv237_NvTo2DaUyS95TmErs1M-uW3qOLn6LL5jlOIT6Tii7J8G4h4MKO26x7zDo-0Upr_rWlmUY3YVfRs9TdxWeREkVFtEfIL22yd9Ii-OYAkwKTcLUFnjq99AaX30ZHcJmhUrtjLj06SnoNP5Kff-Oz5y4BWXjfg02KmWGPddZ3j1Gvm6yFEkbSZHl1ZM33mifUBFf3ZOJsi-G8MnJLaiEvzxc9qTZ3tcRKGrnLCww"
                   alt="After Lumina Cosmetic Renewal"
                   className="absolute inset-0 w-full h-full object-cover select-none"
-                  style={{ width: containerRef.current?.getBoundingClientRect().width }}
+                  style={{ width: containerWidth }}
                   referrerPolicy="no-referrer"
                 />
                 <div className="absolute top-4 left-4 bg-teal-600/90 backdrop-blur-xs text-white font-mono text-[10px] font-bold px-3 py-1.5 rounded-md pointer-events-none uppercase flex items-center gap-1">
