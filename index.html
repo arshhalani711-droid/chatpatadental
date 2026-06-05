@@ -11,59 +11,67 @@
         const OriginalWebSocket = window.WebSocket;
         if (!OriginalWebSocket) return;
 
-        class PatchedWebSocket extends OriginalWebSocket {
-          constructor(url, protocols) {
-            const isViteWS = (
-              (typeof protocols === 'string' && protocols === 'vite-hmr') ||
-              (Array.isArray(protocols) && protocols.includes('vite-hmr')) ||
-              (typeof url === 'string' && (
-                url.includes('/vite') || 
-                url.includes(':3000') || 
-                url.includes('run.app') ||
-                url.includes('127.0.0.1') || 
-                url.includes('localhost')
-              ))
-            );
+        function PatchedWebSocket(url, protocols) {
+          const isViteWS = (
+            (typeof protocols === 'string' && protocols === 'vite-hmr') ||
+            (Array.isArray(protocols) && protocols.includes('vite-hmr')) ||
+            (typeof url === 'string' && (
+              url.includes('/vite') || 
+              url.includes(':3000') || 
+              url.includes('run.app') ||
+              url.includes('127.0.0.1') || 
+              url.includes('localhost')
+            ))
+          );
 
-            if (isViteWS) {
-              // Create a robust virtual WebSocket to silence disconnected development HMR error bursts
-              const listeners = {};
-              const fakeSocket = {
-                url: url,
-                readyState: 1, // Instantly OPEN to stop reconnection wait lists
-                bufferedAmount: 0,
-                extensions: "",
-                protocol: "vite-hmr",
-                binaryType: "blob",
-                send: function() {},
-                close: function() {
-                  this.readyState = 3; // CLOSED
-                  if (this.onclose) this.onclose();
-                  if (listeners['close']) {
-                    listeners['close'].forEach(cb => cb());
-                  }
-                },
-                addEventListener: function(event, callback) {
-                  if (!listeners[event]) listeners[event] = [];
-                  listeners[event].push(callback);
-                  if (event === 'open') {
-                    setTimeout(() => callback({ type: 'open' }), 10);
-                  }
-                },
-                removeEventListener: function(event, callback) {
-                  if (listeners[event]) {
-                    listeners[event] = listeners[event].filter(cb => cb !== callback);
-                  }
-                },
-                dispatchEvent: function() { return true; }
-              };
-              return fakeSocket;
-            }
-
-            // Normal WebSocket for any actual user real-time client networks
-            super(url, protocols);
+          if (isViteWS) {
+            // Create a robust virtual WebSocket to silence disconnected development HMR error bursts
+            const listeners = {};
+            const fakeSocket = {
+              url: url,
+              readyState: 1, // Instantly OPEN to stop reconnection wait lists
+              bufferedAmount: 0,
+              extensions: "",
+              protocol: "vite-hmr",
+              binaryType: "blob",
+              send: function() {},
+              close: function() {
+                this.readyState = 3; // CLOSED
+                if (this.onclose) this.onclose();
+                if (listeners['close']) {
+                  listeners['close'].forEach(cb => cb());
+                }
+              },
+              addEventListener: function(event, callback) {
+                if (!listeners[event]) listeners[event] = [];
+                listeners[event].push(callback);
+                if (event === 'open') {
+                  setTimeout(() => {
+                    if (typeof callback === 'function') {
+                      callback({ type: 'open' });
+                    } else if (callback && typeof callback.handleEvent === 'function') {
+                      callback.handleEvent({ type: 'open' });
+                    }
+                  }, 10);
+                }
+              },
+              removeEventListener: function(event, callback) {
+                if (listeners[event]) {
+                  listeners[event] = listeners[event].filter(cb => cb !== callback);
+                }
+              },
+              dispatchEvent: function() { return true; }
+            };
+            return fakeSocket;
           }
+
+          // Normal WebSocket for any actual user real-time client networks
+          return new OriginalWebSocket(url, protocols);
         }
+
+        // Copy prototype and static fields
+        PatchedWebSocket.prototype = OriginalWebSocket.prototype;
+        Object.assign(PatchedWebSocket, OriginalWebSocket);
 
         window.WebSocket = PatchedWebSocket;
       })();

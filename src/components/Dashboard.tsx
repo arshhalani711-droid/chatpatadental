@@ -1054,7 +1054,7 @@ export default function Dashboard({
               </div>
 
               {/* Data Table Grid */}
-              <div className="border border-slate-150 rounded-2xl overflow-hidden bg-white max-h-[500px] overflow-y-auto">
+              <div className="border border-slate-150 rounded-2xl overflow-hidden bg-white max-h-[500px] overflow-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 font-mono uppercase tracking-wider">
