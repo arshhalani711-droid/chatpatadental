@@ -1,0 +1,6 @@
+{
+  "name": "Chatpata Dental Studio",
+  "description": "A premium dental clinic website with interactive treatments, before/after slider, automated booking, AI-powered dental assistant chatbot, and an integrated admin and patient dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
