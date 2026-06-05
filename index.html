@@ -12,46 +12,66 @@
         if (!OriginalWebSocket) return;
 
         window.WebSocket = function(url, protocols) {
-          const isViteWS = typeof url === 'string' && (
-            url.includes('/vite') || 
-            url.includes(':3000') || 
-            url.includes('127.0.0.1') || 
-            url.includes('localhost')
+          const isViteWS = (
+            (typeof protocols === 'string' && protocols === 'vite-hmr') ||
+            (Array.isArray(protocols) && protocols.includes('vite-hmr')) ||
+            (typeof url === 'string' && (
+              url.includes('/vite') || 
+              url.includes(':3000') || 
+              url.includes('127.0.0.1') || 
+              url.includes('localhost')
+            ))
           );
 
           if (isViteWS) {
-            // Create a fake WebSocket-like object to prevent browser errors & console noise
+            const listeners = {};
             const fakeSocket = {
               url: url,
-              readyState: 3, // CLOSED
+              readyState: 0, // CONNECTING
               bufferedAmount: 0,
               extensions: "",
-              protocol: "",
+              protocol: "vite-hmr",
               binaryType: "blob",
               onopen: null,
               onmessage: null,
               onerror: null,
               onclose: null,
               send: function() {},
-              close: function() {},
-              addEventListener: function(event, callback) {
-                // If Vite listens for 'close' or 'error', we don't trigger them to avoid console alerts or retries
-                // Or if we want to simulate a quiet close:
-                if (event === 'close') {
-                  // Do not trigger immediately to avoid spinning infinite reconnection loops in Vite
+              close: function() {
+                fakeSocket.readyState = 3; // CLOSED
+                if (fakeSocket.onclose) fakeSocket.onclose();
+                if (listeners['close']) {
+                  listeners['close'].forEach(cb => cb());
                 }
               },
-              removeEventListener: function() {},
+              addEventListener: function(event, callback) {
+                if (!listeners[event]) listeners[event] = [];
+                listeners[event].push(callback);
+              },
+              removeEventListener: function(event, callback) {
+                if (listeners[event]) {
+                  listeners[event] = listeners[event].filter(cb => cb !== callback);
+                }
+              },
               dispatchEvent: function() { return true; }
             };
+
+            // Transition to virtual OPEN state and invoke callback listeners
+            setTimeout(() => {
+              fakeSocket.readyState = 1; // OPEN
+              if (fakeSocket.onopen) fakeSocket.onopen();
+              if (listeners['open']) {
+                listeners['open'].forEach(cb => cb());
+              }
+            }, 100);
+
             return fakeSocket;
           }
 
-          // Fallback to original WebSocket for any actual user real-time connections
           return new OriginalWebSocket(url, protocols);
         };
 
-        // Maintain prototype chain and static functions
+        // Maintain prototype chain and static properties
         window.WebSocket.prototype = OriginalWebSocket.prototype;
         Object.assign(window.WebSocket, OriginalWebSocket);
       })();
